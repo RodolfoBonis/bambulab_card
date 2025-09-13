@@ -8,21 +8,74 @@ class BambulabCard extends HTMLElement {
 
   static getStubConfig() {
     return {
-      entity: 'sensor.bambu_a1_print_status',
-      camera_entity: 'camera.bambu_a1_camera',
       name: 'Bambulab A1',
       show_ams: true,
       show_controls: true,
       show_temperature_graph: false,
       show_camera: true,
-      camera_position: 'right'
+      camera_position: 'right',
+      entities: {
+        print_status: 'sensor.bambu_a1_print_status',
+        print_progress: 'sensor.bambu_a1_print_progress',
+        current_layer: 'sensor.bambu_a1_current_layer',
+        total_layers: 'sensor.bambu_a1_total_layer_count',
+        remaining_time: 'sensor.bambu_a1_remaining_time',
+        start_time: 'sensor.bambu_a1_start_time',
+        print_weight: 'sensor.bambu_a1_print_weight',
+        nozzle_temp: 'sensor.bambu_a1_nozzle_temperature',
+        bed_temp: 'sensor.bambu_a1_bed_temperature',
+        nozzle_target: 'number.bambu_a1_nozzle_target_temperature',
+        bed_target: 'number.bambu_a1_bed_target_temperature',
+        active_tray: 'sensor.bambu_a1_active_tray',
+        ams_tray_1: 'sensor.bambu_a1_ams_tray_1',
+        ams_tray_2: 'sensor.bambu_a1_ams_tray_2',
+        ams_tray_3: 'sensor.bambu_a1_ams_tray_3',
+        ams_tray_4: 'sensor.bambu_a1_ams_tray_4',
+        hms_errors: 'sensor.bambu_a1_hms_errors',
+        camera: 'camera.bambu_a1_camera',
+        cover_image: 'image.bambu_a1_cover_image',
+        pause_button: 'button.bambu_a1_pause_print',
+        resume_button: 'button.bambu_a1_resume_print',
+        stop_button: 'button.bambu_a1_stop_print'
+      }
     };
   }
 
   setConfig(config) {
-    if (!config.entity) {
-      throw new Error('Please define a print status entity');
+    // Support both old (entity) and new (entities) configuration
+    if (!config.entity && !config.entities) {
+      throw new Error('Please define either entity or entities configuration');
     }
+    
+    // If using old configuration style, convert to new
+    if (config.entity && !config.entities) {
+      const prefix = config.entity.split('_print_status')[0];
+      config.entities = {
+        print_status: config.entity,
+        print_progress: `${prefix}_print_progress`,
+        current_layer: `${prefix}_current_layer`,
+        total_layers: `${prefix}_total_layer_count`,
+        remaining_time: `${prefix}_remaining_time`,
+        start_time: `${prefix}_start_time`,
+        print_weight: `${prefix}_print_weight`,
+        nozzle_temp: `${prefix}_nozzle_temperature`,
+        bed_temp: `${prefix}_bed_temperature`,
+        nozzle_target: `number.${prefix.split('.')[1]}_nozzle_target_temperature`,
+        bed_target: `number.${prefix.split('.')[1]}_bed_target_temperature`,
+        active_tray: `${prefix}_active_tray`,
+        ams_tray_1: `${prefix}_ams_tray_1`,
+        ams_tray_2: `${prefix}_ams_tray_2`,
+        ams_tray_3: `${prefix}_ams_tray_3`,
+        ams_tray_4: `${prefix}_ams_tray_4`,
+        hms_errors: `${prefix}_hms_errors`,
+        camera: config.camera_entity || `camera.${prefix.split('.')[1]}_camera`,
+        cover_image: `image.${prefix.split('.')[1]}_cover_image`,
+        pause_button: `button.${prefix.split('.')[1]}_pause_print`,
+        resume_button: `button.${prefix.split('.')[1]}_resume_print`,
+        stop_button: `button.${prefix.split('.')[1]}_stop_print`
+      };
+    }
+    
     this._config = {
       name: 'Bambulab Printer',
       show_ams: true,
@@ -471,7 +524,7 @@ class BambulabCard extends HTMLElement {
             </div>
           </div>
 
-          ${this._config.show_camera && this._config.camera_entity ? `
+          ${this._config.show_camera && this._config.entities && this._config.entities.camera ? `
             <div class="camera-section">
               <div class="camera-container">
                 <img id="camera-feed" src="" alt="Camera Feed">
@@ -514,15 +567,28 @@ class BambulabCard extends HTMLElement {
   }
 
   callService(action) {
-    if (!this._hass) return;
+    if (!this._hass || !this._config.entities) return;
 
-    const service = action === 'pause' ? 'pause_print' : 
-                   action === 'resume' ? 'resume_print' : 
-                   'stop_print';
+    let entityId;
+    switch (action) {
+      case 'pause':
+        entityId = this._config.entities.pause_button;
+        break;
+      case 'resume':
+        entityId = this._config.entities.resume_button;
+        break;
+      case 'stop':
+        entityId = this._config.entities.stop_button;
+        break;
+      default:
+        return;
+    }
 
-    this._hass.callService('button', 'press', {
-      entity_id: `button.${this._config.entity.split('.')[1]}_${service}`
-    });
+    if (entityId) {
+      this._hass.callService('button', 'press', {
+        entity_id: entityId
+      });
+    }
   }
 
   toggleFullscreen() {
@@ -539,21 +605,21 @@ class BambulabCard extends HTMLElement {
   }
 
   updateCard() {
-    if (!this._hass || !this.shadowRoot) return;
+    if (!this._hass || !this.shadowRoot || !this._config.entities) return;
 
-    const mainEntity = this._hass.states[this._config.entity];
-    if (!mainEntity) return;
+    const printStatusEntity = this._hass.states[this._config.entities.print_status];
+    if (!printStatusEntity) return;
 
     // Update status
     const statusBadge = this.shadowRoot.getElementById('status-badge');
-    const status = mainEntity.state;
+    const status = printStatusEntity.state;
     if (statusBadge) {
       statusBadge.textContent = this.translateStatus(status);
       statusBadge.className = `status-badge status-${status.toLowerCase()}`;
     }
 
     // Update camera
-    if (this._config.show_camera && this._config.camera_entity) {
+    if (this._config.show_camera && this._config.entities.camera) {
       this.updateCamera();
     }
 
@@ -576,23 +642,23 @@ class BambulabCard extends HTMLElement {
   }
 
   updateCamera() {
-    const cameraEntity = this._hass.states[this._config.camera_entity];
+    if (!this._config.entities.camera) return;
+    
+    const cameraEntity = this._hass.states[this._config.entities.camera];
     if (!cameraEntity) return;
 
     const cameraImg = this.shadowRoot.getElementById('camera-feed');
     if (cameraImg) {
       const token = cameraEntity.attributes.access_token;
       const baseUrl = `${window.location.origin}`;
-      cameraImg.src = `${baseUrl}/api/camera_proxy_stream/${this._config.camera_entity}?token=${token}&t=${Date.now()}`;
+      cameraImg.src = `${baseUrl}/api/camera_proxy_stream/${this._config.entities.camera}?token=${token}&t=${Date.now()}`;
     }
   }
 
   updateTemperatures() {
-    const entityPrefix = this._config.entity.split('_')[0] + '_' + this._config.entity.split('_')[1];
-    
     // Nozzle temperature
-    const nozzleTemp = this._hass.states[`sensor.${entityPrefix}_nozzle_temperature`];
-    const nozzleTarget = this._hass.states[`number.${entityPrefix}_nozzle_target_temperature`];
+    const nozzleTemp = this._config.entities.nozzle_temp ? this._hass.states[this._config.entities.nozzle_temp] : null;
+    const nozzleTarget = this._config.entities.nozzle_target ? this._hass.states[this._config.entities.nozzle_target] : null;
     
     if (nozzleTemp) {
       this.shadowRoot.getElementById('nozzle-temp').textContent = `${Math.round(nozzleTemp.state)}°C`;
@@ -602,8 +668,8 @@ class BambulabCard extends HTMLElement {
     }
 
     // Bed temperature
-    const bedTemp = this._hass.states[`sensor.${entityPrefix}_bed_temperature`];
-    const bedTarget = this._hass.states[`number.${entityPrefix}_bed_target_temperature`];
+    const bedTemp = this._config.entities.bed_temp ? this._hass.states[this._config.entities.bed_temp] : null;
+    const bedTarget = this._config.entities.bed_target ? this._hass.states[this._config.entities.bed_target] : null;
     
     if (bedTemp) {
       this.shadowRoot.getElementById('bed-temp').textContent = `${Math.round(bedTemp.state)}°C`;
@@ -614,15 +680,13 @@ class BambulabCard extends HTMLElement {
   }
 
   updateProgress() {
-    const entityPrefix = this._config.entity.split('_')[0] + '_' + this._config.entity.split('_')[1];
-    
-    const progressEntity = this._hass.states[`sensor.${entityPrefix}_print_progress`];
-    const layerEntity = this._hass.states[`sensor.${entityPrefix}_current_layer`];
-    const totalLayersEntity = this._hass.states[`sensor.${entityPrefix}_total_layer_count`];
-    const remainingEntity = this._hass.states[`sensor.${entityPrefix}_remaining_time`];
-    const startTimeEntity = this._hass.states[`sensor.${entityPrefix}_start_time`];
-    const printWeightEntity = this._hass.states[`sensor.${entityPrefix}_print_weight`];
-    const coverImageEntity = this._hass.states[`image.${entityPrefix}_cover_image`];
+    const progressEntity = this._config.entities.print_progress ? this._hass.states[this._config.entities.print_progress] : null;
+    const layerEntity = this._config.entities.current_layer ? this._hass.states[this._config.entities.current_layer] : null;
+    const totalLayersEntity = this._config.entities.total_layers ? this._hass.states[this._config.entities.total_layers] : null;
+    const remainingEntity = this._config.entities.remaining_time ? this._hass.states[this._config.entities.remaining_time] : null;
+    const startTimeEntity = this._config.entities.start_time ? this._hass.states[this._config.entities.start_time] : null;
+    const printWeightEntity = this._config.entities.print_weight ? this._hass.states[this._config.entities.print_weight] : null;
+    const coverImageEntity = this._config.entities.cover_image ? this._hass.states[this._config.entities.cover_image] : null;
 
     const progressSection = this.shadowRoot.getElementById('progress-section');
     const isPrinting = progressEntity && progressEntity.state !== 'unknown' && parseFloat(progressEntity.state) > 0;
@@ -693,16 +757,16 @@ class BambulabCard extends HTMLElement {
   }
 
   updateAMS() {
-    const entityPrefix = this._config.entity.split('_')[0] + '_' + this._config.entity.split('_')[1];
     const amsTraysContainer = this.shadowRoot.getElementById('ams-trays');
-    const activeTrayEntity = this._hass.states[`sensor.${entityPrefix}_active_tray`];
+    const activeTrayEntity = this._config.entities.active_tray ? this._hass.states[this._config.entities.active_tray] : null;
     
     if (!amsTraysContainer) return;
 
     amsTraysContainer.innerHTML = '';
 
     for (let i = 1; i <= 4; i++) {
-      const trayEntity = this._hass.states[`sensor.${entityPrefix}_ams_tray_${i}`];
+      const trayEntityKey = `ams_tray_${i}`;
+      const trayEntity = this._config.entities[trayEntityKey] ? this._hass.states[this._config.entities[trayEntityKey]] : null;
       
       const trayDiv = document.createElement('div');
       trayDiv.className = 'ams-tray';
@@ -762,8 +826,7 @@ class BambulabCard extends HTMLElement {
   }
 
   updateErrors() {
-    const entityPrefix = this._config.entity.split('_')[0] + '_' + this._config.entity.split('_')[1];
-    const errorEntity = this._hass.states[`sensor.${entityPrefix}_hms_errors`];
+    const errorEntity = this._config.entities.hms_errors ? this._hass.states[this._config.entities.hms_errors] : null;
     
     const errorSection = this.shadowRoot.getElementById('error-section');
     const errorMessage = this.shadowRoot.getElementById('error-message');
@@ -820,41 +883,281 @@ class BambulabCardEditor extends HTMLElement {
 
   render() {
     if (!this.innerHTML) {
+      const entities = this._config.entities || {};
       this.innerHTML = `
+        <style>
+          .card-config {
+            padding: 16px;
+          }
+          .config-section {
+            margin-bottom: 24px;
+            border: 1px solid var(--divider-color);
+            border-radius: 8px;
+            padding: 16px;
+          }
+          .config-section-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            color: var(--primary-text-color);
+          }
+          .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+          .config-row:last-child {
+            margin-bottom: 0;
+          }
+          @media (max-width: 600px) {
+            .config-row {
+              grid-template-columns: 1fr;
+            }
+          }
+          .legacy-warning {
+            background: var(--warning-color);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9em;
+          }
+        </style>
         <div class="card-config">
           <paper-input
-            label="Entity (required)"
-            value="${this._config.entity || ''}"
-            @value-changed="${this._valueChanged}"
-            .configValue="${'entity'}"
-          ></paper-input>
-          <paper-input
-            label="Camera Entity"
-            value="${this._config.camera_entity || ''}"
-            @value-changed="${this._valueChanged}"
-            .configValue="${'camera_entity'}"
-          ></paper-input>
-          <paper-input
-            label="Name"
+            label="Nome do Card"
             value="${this._config.name || ''}"
             @value-changed="${this._valueChanged}"
             .configValue="${'name'}"
           ></paper-input>
-          <ha-switch
-            ?checked=${this._config.show_ams !== false}
-            .configValue="${'show_ams'}"
-            @change="${this._valueChanged}"
-          >Show AMS</ha-switch>
-          <ha-switch
-            ?checked=${this._config.show_controls !== false}
-            .configValue="${'show_controls'}"
-            @change="${this._valueChanged}"
-          >Show Controls</ha-switch>
-          <ha-switch
-            ?checked=${this._config.show_camera !== false}
-            .configValue="${'show_camera'}"
-            @change="${this._valueChanged}"
-          >Show Camera</ha-switch>
+          
+          ${this._config.entity ? `
+            <div class="legacy-warning">
+              ⚠️ Você está usando a configuração antiga. Considere migrar para a nova configuração individual de entidades para ter mais controle.
+            </div>
+            <paper-input
+              label="Entidade Principal (Legado)"
+              value="${this._config.entity || ''}"
+              @value-changed="${this._valueChanged}"
+              .configValue="${'entity'}"
+            ></paper-input>
+          ` : ''}
+          
+          <div class="config-section">
+            <div class="config-section-title">📊 Status e Progresso</div>
+            <div class="config-row">
+              <paper-input
+                label="Status da Impressão"
+                value="${entities.print_status || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'print_status'}"
+                placeholder="sensor.bambu_a1_print_status"
+              ></paper-input>
+              <paper-input
+                label="Progresso (%)"
+                value="${entities.print_progress || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'print_progress'}"
+                placeholder="sensor.bambu_a1_print_progress"
+              ></paper-input>
+            </div>
+            <div class="config-row">
+              <paper-input
+                label="Camada Atual"
+                value="${entities.current_layer || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'current_layer'}"
+                placeholder="sensor.bambu_a1_current_layer"
+              ></paper-input>
+              <paper-input
+                label="Total de Camadas"
+                value="${entities.total_layers || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'total_layers'}"
+                placeholder="sensor.bambu_a1_total_layer_count"
+              ></paper-input>
+            </div>
+            <div class="config-row">
+              <paper-input
+                label="Tempo Restante"
+                value="${entities.remaining_time || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'remaining_time'}"
+                placeholder="sensor.bambu_a1_remaining_time"
+              ></paper-input>
+              <paper-input
+                label="Hora de Início"
+                value="${entities.start_time || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'start_time'}"
+                placeholder="sensor.bambu_a1_start_time"
+              ></paper-input>
+            </div>
+            <paper-input
+              label="Peso do Filamento"
+              value="${entities.print_weight || ''}"
+              @value-changed="${this._entityValueChanged}"
+              .configValue="${'print_weight'}"
+              placeholder="sensor.bambu_a1_print_weight"
+            ></paper-input>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">🌡️ Temperaturas</div>
+            <div class="config-row">
+              <paper-input
+                label="Temperatura do Bico"
+                value="${entities.nozzle_temp || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'nozzle_temp'}"
+                placeholder="sensor.bambu_a1_nozzle_temperature"
+              ></paper-input>
+              <paper-input
+                label="Alvo do Bico"
+                value="${entities.nozzle_target || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'nozzle_target'}"
+                placeholder="number.bambu_a1_nozzle_target_temperature"
+              ></paper-input>
+            </div>
+            <div class="config-row">
+              <paper-input
+                label="Temperatura da Mesa"
+                value="${entities.bed_temp || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'bed_temp'}"
+                placeholder="sensor.bambu_a1_bed_temperature"
+              ></paper-input>
+              <paper-input
+                label="Alvo da Mesa"
+                value="${entities.bed_target || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'bed_target'}"
+                placeholder="number.bambu_a1_bed_target_temperature"
+              ></paper-input>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">🎨 Sistema AMS</div>
+            <paper-input
+              label="Bandeja Ativa"
+              value="${entities.active_tray || ''}"
+              @value-changed="${this._entityValueChanged}"
+              .configValue="${'active_tray'}"
+              placeholder="sensor.bambu_a1_active_tray"
+            ></paper-input>
+            <div class="config-row">
+              <paper-input
+                label="Bandeja 1"
+                value="${entities.ams_tray_1 || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'ams_tray_1'}"
+                placeholder="sensor.bambu_a1_ams_tray_1"
+              ></paper-input>
+              <paper-input
+                label="Bandeja 2"
+                value="${entities.ams_tray_2 || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'ams_tray_2'}"
+                placeholder="sensor.bambu_a1_ams_tray_2"
+              ></paper-input>
+            </div>
+            <div class="config-row">
+              <paper-input
+                label="Bandeja 3"
+                value="${entities.ams_tray_3 || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'ams_tray_3'}"
+                placeholder="sensor.bambu_a1_ams_tray_3"
+              ></paper-input>
+              <paper-input
+                label="Bandeja 4"
+                value="${entities.ams_tray_4 || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'ams_tray_4'}"
+                placeholder="sensor.bambu_a1_ams_tray_4"
+              ></paper-input>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">📷 Câmera e Mídia</div>
+            <div class="config-row">
+              <paper-input
+                label="Câmera"
+                value="${entities.camera || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'camera'}"
+                placeholder="camera.bambu_a1_camera"
+              ></paper-input>
+              <paper-input
+                label="Imagem de Preview"
+                value="${entities.cover_image || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'cover_image'}"
+                placeholder="image.bambu_a1_cover_image"
+              ></paper-input>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">🎮 Controles</div>
+            <div class="config-row">
+              <paper-input
+                label="Botão Pausar"
+                value="${entities.pause_button || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'pause_button'}"
+                placeholder="button.bambu_a1_pause_print"
+              ></paper-input>
+              <paper-input
+                label="Botão Retomar"
+                value="${entities.resume_button || ''}"
+                @value-changed="${this._entityValueChanged}"
+                .configValue="${'resume_button'}"
+                placeholder="button.bambu_a1_resume_print"
+              ></paper-input>
+            </div>
+            <paper-input
+              label="Botão Parar"
+              value="${entities.stop_button || ''}"
+              @value-changed="${this._entityValueChanged}"
+              .configValue="${'stop_button'}"
+              placeholder="button.bambu_a1_stop_print"
+            ></paper-input>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">⚠️ Erros</div>
+            <paper-input
+              label="Erros HMS"
+              value="${entities.hms_errors || ''}"
+              @value-changed="${this._entityValueChanged}"
+              .configValue="${'hms_errors'}"
+              placeholder="sensor.bambu_a1_hms_errors"
+            ></paper-input>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">⚙️ Opções de Exibição</div>
+            <ha-switch
+              ?checked=${this._config.show_ams !== false}
+              .configValue="${'show_ams'}"
+              @change="${this._valueChanged}"
+            >Mostrar AMS</ha-switch>
+            <ha-switch
+              ?checked=${this._config.show_controls !== false}
+              .configValue="${'show_controls'}"
+              @change="${this._valueChanged}"
+            >Mostrar Controles</ha-switch>
+            <ha-switch
+              ?checked=${this._config.show_camera !== false}
+              .configValue="${'show_camera'}"
+              @change="${this._valueChanged}"
+            >Mostrar Câmera</ha-switch>
+          </div>
         </div>
       `;
     }
@@ -872,6 +1175,27 @@ class BambulabCardEditor extends HTMLElement {
       } else {
         this._config[configValue] = target.value;
       }
+    }
+
+    const event = new CustomEvent('config-changed', {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true
+    });
+    this.dispatchEvent(event);
+  }
+
+  _entityValueChanged(ev) {
+    if (!this._config || !this.hass) return;
+
+    const target = ev.target;
+    const configValue = target.configValue;
+
+    if (configValue) {
+      if (!this._config.entities) {
+        this._config.entities = {};
+      }
+      this._config.entities[configValue] = target.value;
     }
 
     const event = new CustomEvent('config-changed', {

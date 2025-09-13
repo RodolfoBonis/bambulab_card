@@ -1,0 +1,66 @@
+# Exemplo de configuração para testar o card
+# Copie para seu dashboard do Home Assistant
+
+# Configuração Nova (Recomendada) - Entidades Individuais
+- type: custom:bambulab-card
+  name: "Bambulab A1 Combo - Nova Config"
+  entities:
+    # Status e Progresso
+    print_status: sensor.bambu_a1_print_status
+    print_progress: sensor.bambu_a1_print_progress
+    current_layer: sensor.bambu_a1_current_layer
+    total_layers: sensor.bambu_a1_total_layer_count
+    remaining_time: sensor.bambu_a1_remaining_time
+    start_time: sensor.bambu_a1_start_time
+    print_weight: sensor.bambu_a1_print_weight
+    
+    # Temperaturas
+    nozzle_temp: sensor.bambu_a1_nozzle_temperature
+    bed_temp: sensor.bambu_a1_bed_temperature
+    nozzle_target: number.bambu_a1_nozzle_target_temperature
+    bed_target: number.bambu_a1_bed_target_temperature
+    
+    # Sistema AMS
+    active_tray: sensor.bambu_a1_active_tray
+    ams_tray_1: sensor.bambu_a1_ams_tray_1
+    ams_tray_2: sensor.bambu_a1_ams_tray_2
+    ams_tray_3: sensor.bambu_a1_ams_tray_3
+    ams_tray_4: sensor.bambu_a1_ams_tray_4
+    
+    # Mídia
+    camera: camera.bambu_a1_camera
+    cover_image: image.bambu_a1_cover_image
+    
+    # Controles
+    pause_button: button.bambu_a1_pause_print
+    resume_button: button.bambu_a1_resume_print
+    stop_button: button.bambu_a1_stop_print
+    
+    # Erros
+    hms_errors: sensor.bambu_a1_hms_errors
+  
+  # Opções de exibição
+  show_ams: true
+  show_controls: true
+  show_camera: true
+  camera_position: right
+
+# Configuração Legado (Para Compatibilidade)
+- type: custom:bambulab-card
+  entity: sensor.bambu_a1_print_status
+  camera_entity: camera.bambu_a1_camera
+  name: "Bambulab A1 - Config Legado"
+  show_ams: true
+  show_controls: true
+  show_camera: true
+  camera_position: top
+
+# Configuração Mínima (Apenas Status)
+- type: custom:bambulab-card
+  name: "Status Rápido"
+  entities:
+    print_status: sensor.bambu_a1_print_status
+    print_progress: sensor.bambu_a1_print_progress
+  show_ams: false
+  show_controls: false
+  show_camera: false
