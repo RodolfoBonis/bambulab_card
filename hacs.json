@@ -1,0 +1,7 @@
+{
+  "name": "Bambulab Card",
+  "render_readme": true,
+  "filename": "bambulab-card.js",
+  "country": ["BR", "US", "PT"],
+  "homeassistant": "2023.1.0"
+}
