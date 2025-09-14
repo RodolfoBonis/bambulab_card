@@ -13,7 +13,8 @@
       "Bash(git push:*)",
       "WebFetch(domain:dermotduffy.github.io)",
       "WebFetch(domain:card.camera)",
-      "WebFetch(domain:community.home-assistant.io)"
+      "WebFetch(domain:community.home-assistant.io)",
+      "WebFetch(domain:homeassistant.rodolfodebonis.com.br)"
     ],
     "deny": [],
     "ask": []

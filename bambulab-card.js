@@ -167,7 +167,15 @@ class BambulabCard extends HTMLElement {
         }
 
         .main-content.camera-top {
+          flex-direction: column-reverse;
+        }
+        
+        .main-content.camera-bottom {
           flex-direction: column;
+        }
+        
+        .main-content.camera-left {
+          flex-direction: row-reverse;
         }
 
         .info-section {
@@ -862,7 +870,10 @@ class BambulabCard extends HTMLElement {
     if (remainingEntity) {
       const timeRemaining = this.shadowRoot.getElementById('time-remaining');
       if (timeRemaining) {
-        timeRemaining.textContent = this.formatTime(parseInt(remainingEntity.state));
+        // remainingEntity.state is in hours, convert to minutes
+        const hoursRemaining = parseFloat(remainingEntity.state);
+        const minutesRemaining = Math.round(hoursRemaining * 60);
+        timeRemaining.textContent = this.formatTime(minutesRemaining);
       }
     }
 
@@ -946,17 +957,24 @@ class BambulabCard extends HTMLElement {
 
     if (!pauseBtn || !resumeBtn || !stopBtn) return;
 
-    if (status === 'printing') {
+    // Map Bambulab statuses to control states
+    const activeStatuses = ['printing', 'running', 'prepare'];
+    const pausedStatuses = ['paused', 'pause'];
+    
+    if (activeStatuses.includes(status.toLowerCase())) {
+      // Printer is actively printing - show pause and stop
       pauseBtn.style.display = 'flex';
       resumeBtn.style.display = 'none';
       pauseBtn.disabled = false;
       stopBtn.disabled = false;
-    } else if (status === 'paused') {
+    } else if (pausedStatuses.includes(status.toLowerCase())) {
+      // Printer is paused - show resume and stop
       pauseBtn.style.display = 'none';
       resumeBtn.style.display = 'flex';
       resumeBtn.disabled = false;
       stopBtn.disabled = false;
     } else {
+      // Printer is idle/offline/finished - disable all controls
       pauseBtn.style.display = 'flex';
       resumeBtn.style.display = 'none';
       pauseBtn.disabled = true;
@@ -1029,22 +1047,22 @@ class BambulabCardEditor extends HTMLElement {
             padding: 16px;
           }
           .config-section {
-            margin-bottom: 24px;
-            border: 1px solid var(--divider-color);
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--secondary-background-color, #f5f5f5);
             border-radius: 8px;
-            padding: 16px;
           }
           .config-section-title {
             font-weight: bold;
-            font-size: 1.1em;
-            margin-bottom: 12px;
-            color: var(--primary-text-color);
+            font-size: 1em;
+            margin-bottom: 8px;
+            color: var(--primary-text-color, #333);
           }
           .config-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
           }
           .config-row:last-child {
             margin-bottom: 0;
@@ -1054,13 +1072,25 @@ class BambulabCardEditor extends HTMLElement {
               grid-template-columns: 1fr;
             }
           }
+          .config-item {
+            margin-bottom: 8px;
+          }
           .legacy-warning {
-            background: var(--warning-color);
+            background: var(--warning-color, #ff9800);
             color: white;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 12px;
             font-size: 0.9em;
+          }
+          paper-input {
+            display: block;
+            margin-bottom: 8px;
+          }
+          ha-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
           }
         </style>
         <div class="card-config">

@@ -40,12 +40,19 @@ entities:
   resume_button: button.a1_03919d542803278_resume_print
   stop_button: button.a1_03919d542803278_stop_print
 
-# Mudanças implementadas para corrigir o problema da câmera:
-# 1. Método 1: Usar entity_picture se disponível (mais confiável)
-# 2. Método 2: Usar Home Assistant auth token com múltiplas tentativas
-# 3. Método 3: Usar entity access_token como fallback
-# 4. Método 4: Tentar proxy básico sem token
-# 5. Método 5: Mostrar erro amigável se tudo falhar
-#
-# O card agora tenta múltiplas estratégias para acessar a câmera
-# e inclui logs detalhados para debug no console do navegador
+# Correções implementadas v2.1.0:
+# 
+# ✅ PROBLEMAS CORRIGIDOS:
+# 1. 🕐 Tempo Restante: Convertido de horas para minutos (era 1.0166 horas = ~61 min)
+# 2. 🎮 Botões de Controle: Adicionado suporte ao status 'running' (antes só 'printing')
+# 3. 📷 Posição da Câmera: Corrigido CSS - 'top' agora coloca câmera acima
+# 4. ⚙️ Editor Visual: Corrigido layout e CSS dos campos de configuração
+# 5. 📹 Câmera: Sistema de fallback robusto implementado
+# 
+# 🔧 MELHORIAS TÉCNICAS:
+# - Mapeamento correto de status: ['printing', 'running', 'prepare'] = botões ativos
+# - Posições de câmera: top, bottom, left, right com CSS correto
+# - Formatação de tempo: parseFloat() + conversão horas→minutos
+# - Editor com grid responsivo e placeholders informativos
+# 
+# 📊 STATUS ATUAL: Todos os problemas reportados foram corrigidos
