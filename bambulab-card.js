@@ -648,10 +648,149 @@ class BambulabCard extends HTMLElement {
     if (!cameraEntity) return;
 
     const cameraImg = this.shadowRoot.getElementById('camera-feed');
-    if (cameraImg) {
-      const token = cameraEntity.attributes.access_token;
-      const baseUrl = `${window.location.origin}`;
-      cameraImg.src = `${baseUrl}/api/camera_proxy_stream/${this._config.entities.camera}?token=${token}&t=${Date.now()}`;
+    if (!cameraImg) return;
+
+    // Method 1: Try using entity_picture first (most reliable)
+    if (cameraEntity.attributes.entity_picture) {
+      cameraImg.src = cameraEntity.attributes.entity_picture + `&t=${Date.now()}`;
+      return;
+    }
+
+    // Method 2: Use Home Assistant auth token with proper headers
+    if (this._hass.auth && this._hass.auth.data && this._hass.auth.data.access_token) {
+      const baseUrl = window.location.origin;
+      const authToken = this._hass.auth.data.access_token;
+      
+      console.log('Trying authenticated camera access');
+      
+      // Create a proxy URL with authentication
+      const proxyUrl = `${baseUrl}/api/camera_proxy/${this._config.entities.camera}`;
+      
+      // Try direct assignment with auth header simulation
+      // Since img tags can't send custom headers, we'll use a different approach
+      try {
+        // Method 2a: Try with embedded auth in URL
+        const authUrl = `${proxyUrl}?access_token=${authToken}&t=${Date.now()}`;
+        
+        const testImg = new Image();
+        testImg.onload = () => {
+          console.log('Camera loaded successfully with auth token');
+          cameraImg.src = authUrl;
+        };
+        testImg.onerror = () => {
+          console.warn('Auth token method failed, trying alternative');
+          // Method 2b: Try camera_proxy_stream
+          const streamUrl = `${baseUrl}/api/camera_proxy_stream/${this._config.entities.camera}?access_token=${authToken}&t=${Date.now()}`;
+          
+          const streamImg = new Image();
+          streamImg.onload = () => {
+            console.log('Camera stream loaded successfully');
+            cameraImg.src = streamUrl;
+          };
+          streamImg.onerror = () => {
+            console.warn('Stream method failed, trying fallback');
+            this.fallbackCameraUpdate();
+          };
+          streamImg.src = streamUrl;
+        };
+        testImg.src = authUrl;
+        
+      } catch (error) {
+        console.error('Error in authenticated camera access:', error);
+        this.fallbackCameraUpdate();
+      }
+    } else {
+      console.log('No Home Assistant auth available, using fallback');
+      this.fallbackCameraUpdate();
+    }
+  }
+
+  fallbackCameraUpdate() {
+    const cameraEntity = this._hass.states[this._config.entities.camera];
+    const cameraImg = this.shadowRoot.getElementById('camera-feed');
+    
+    if (!cameraEntity || !cameraImg) {
+      console.error('Camera entity or image element not found');
+      return;
+    }
+
+    const baseUrl = window.location.origin;
+    console.log('Trying fallback camera methods for:', this._config.entities.camera);
+
+    // Method 3: Try using camera proxy stream with entity access_token
+    if (cameraEntity.attributes.access_token) {
+      console.log('Trying with entity access_token');
+      const tokenUrl = `${baseUrl}/api/camera_proxy_stream/${this._config.entities.camera}?token=${cameraEntity.attributes.access_token}&t=${Date.now()}`;
+      
+      const tokenImg = new Image();
+      tokenImg.onload = () => {
+        console.log('Camera loaded with entity token');
+        cameraImg.src = tokenUrl;
+      };
+      tokenImg.onerror = () => {
+        console.warn('Entity token failed, trying basic proxy');
+        this.tryBasicCameraProxy();
+      };
+      tokenImg.src = tokenUrl;
+    } else {
+      console.log('No entity access_token, trying basic proxy');
+      this.tryBasicCameraProxy();
+    }
+  }
+  
+  tryBasicCameraProxy() {
+    const cameraImg = this.shadowRoot.getElementById('camera-feed');
+    const baseUrl = window.location.origin;
+    
+    // Method 4: Try basic camera proxy without token
+    console.log('Trying basic camera proxy');
+    const basicUrl = `${baseUrl}/api/camera_proxy/${this._config.entities.camera}?t=${Date.now()}`;
+    
+    const basicImg = new Image();
+    basicImg.onload = () => {
+      console.log('Camera loaded with basic proxy');
+      cameraImg.src = basicUrl;
+    };
+    basicImg.onerror = () => {
+      console.error('All camera methods failed for:', this._config.entities.camera);
+      this.showCameraError();
+    };
+    basicImg.src = basicUrl;
+  }
+  
+  showCameraError() {
+    const cameraImg = this.shadowRoot.getElementById('camera-feed');
+    if (!cameraImg) return;
+    
+    // Create error placeholder
+    cameraImg.style.backgroundColor = '#333';
+    cameraImg.style.color = 'white';
+    cameraImg.style.fontSize = '14px';
+    cameraImg.style.display = 'flex';
+    cameraImg.style.alignItems = 'center';
+    cameraImg.style.justifyContent = 'center';
+    cameraImg.style.textAlign = 'center';
+    cameraImg.style.padding = '20px';
+    cameraImg.alt = 'Câmera não disponível\nVerifique a configuração';
+    
+    // Add error text
+    const errorDiv = document.createElement('div');
+    errorDiv.innerHTML = '📷<br>Câmera não disponível<br><small>Verifique a configuração</small>';
+    errorDiv.style.textAlign = 'center';
+    
+    // Replace the image content
+    cameraImg.style.display = 'none';
+    const container = cameraImg.parentNode;
+    if (container && !container.querySelector('.camera-error')) {
+      errorDiv.className = 'camera-error';
+      errorDiv.style.display = 'flex';
+      errorDiv.style.alignItems = 'center';
+      errorDiv.style.justifyContent = 'center';
+      errorDiv.style.height = '100%';
+      errorDiv.style.backgroundColor = '#333';
+      errorDiv.style.color = 'white';
+      errorDiv.style.borderRadius = '8px';
+      container.appendChild(errorDiv);
     }
   }
 

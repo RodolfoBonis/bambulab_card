@@ -1,0 +1,51 @@
+# Configuração específica para o usuário (RodolfoBonis)
+# Testando correção da câmera
+
+type: custom:bambulab-card
+name: Bambulab A1
+show_ams: true
+show_controls: true
+show_temperature_graph: true
+show_camera: true
+camera_position: top
+entities:
+  # Status e Progresso
+  print_status: sensor.a1_03919d542803278_print_status
+  print_progress: sensor.a1_03919d542803278_print_progress
+  current_layer: sensor.a1_03919d542803278_current_layer
+  total_layers: sensor.a1_03919d542803278_total_layer_count
+  remaining_time: sensor.a1_03919d542803278_remaining_time
+  start_time: sensor.a1_03919d542803278_start_time
+  print_weight: sensor.a1_03919d542803278_print_weight
+  
+  # Temperaturas
+  nozzle_temp: sensor.a1_03919d542803278_nozzle_temperature
+  bed_temp: sensor.a1_03919d542803278_bed_temperature
+  nozzle_target: number.a1_03919d542803278_nozzle_target_temperature
+  bed_target: number.a1_03919d542803278_bed_target_temperature
+  
+  # Sistema AMS
+  active_tray: sensor.a1_03919d542803278_active_tray
+  ams_tray_1: sensor.a1_03919d542803278_ams_1_tray_1
+  ams_tray_2: sensor.a1_03919d542803278_ams_1_tray_2
+  ams_tray_3: sensor.a1_03919d542803278_ams_1_tray_3
+  ams_tray_4: sensor.a1_03919d542803278_ams_1_tray_4
+  
+  # Mídia - A câmera que estava com problema de token
+  camera: camera.a1_03919d542803278_camera
+  cover_image: image.a1_03919d542803278_cover_image
+  
+  # Controles
+  pause_button: button.a1_03919d542803278_pause_print
+  resume_button: button.a1_03919d542803278_resume_print
+  stop_button: button.a1_03919d542803278_stop_print
+
+# Mudanças implementadas para corrigir o problema da câmera:
+# 1. Método 1: Usar entity_picture se disponível (mais confiável)
+# 2. Método 2: Usar Home Assistant auth token com múltiplas tentativas
+# 3. Método 3: Usar entity access_token como fallback
+# 4. Método 4: Tentar proxy básico sem token
+# 5. Método 5: Mostrar erro amigável se tudo falhar
+#
+# O card agora tenta múltiplas estratégias para acessar a câmera
+# e inclui logs detalhados para debug no console do navegador
